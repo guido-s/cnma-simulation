@@ -1,0 +1,11 @@
+*~
+*.bak
+*.pdf
+.DS_Store
+.Rhistory
+.Rproj.user
+.RData
+.Ruserdata
+*/results/*.rda
+simulation/results/Scenario*
+simulation/results/Table?.txt

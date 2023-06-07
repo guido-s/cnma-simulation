@@ -40,11 +40,11 @@ net <- netmeta(simdata[[3]])
   
 ##
 ##
-## (1) Network plot
+## (1) Network plot (Figure 2)
 ##
 ##
 
-pdf("graphics/Figure1.pdf")
+pdf("graphics/Figure2.pdf")
 netgraph(net, number = TRUE, multi = FALSE, plastic = FALSE,
   col = "black", thickness = "number", lwd = 3,
   seq = net$trts)
@@ -57,7 +57,7 @@ dev.off()
 ##
 ##
 
-pdf("graphics/Figure2a.pdf", width = 8, height = 4)
+pdf("graphics/Figure3a.pdf", width = 8, height = 4)
 xyplot(MSE ~ I(as.numeric(het)) | scenario,
        data = mse.full, groups = model, type = "b",
        layout = c(5, 1),
@@ -69,7 +69,7 @@ xyplot(MSE ~ I(as.numeric(het)) | scenario,
        col = c("blue", "green", "red"), lty = 3:1, lwd = 2)
 dev.off()
 ##
-pdf("graphics/Figure2b.pdf", width = 8, height = 4)
+pdf("graphics/Figure3b.pdf", width = 8, height = 4)
 xyplot(CP ~ I(as.numeric(het)) | scenario,
        data = cp.full, groups = model, type = "b",
        layout = c(5, 1),
@@ -95,7 +95,7 @@ mse <- rbind(mse.full, mse.disc)
 mse$network <-
   factor(mse$network, c("disconnected", "connected"), c("Disconnected", "Connected"))
 ##
-pdf("graphics/Figure2.pdf", width = 9, height = 6)
+pdf("graphics/Figure3.pdf", width = 9, height = 6)
 xyplot(MSE ~ I(as.numeric(het)) | scenario * network,
        data = mse, groups = model, type = c("b", "g"),
        layout = c(5, 2),
@@ -130,7 +130,7 @@ dev.off()
 ##
 ##
 
-pdf("graphics/Figure3a.pdf", width = 8, height = 4)
+pdf("graphics/Figure4a.pdf", width = 8, height = 4)
 xyplot(MSE ~ I(as.numeric(het)) | scenario,
        data = mse.disc, groups = model, type = "b",
        layout = c(5, 1),
@@ -142,7 +142,7 @@ xyplot(MSE ~ I(as.numeric(het)) | scenario,
        col = c("green", "red"), lty = 2:1, lwd = 2)
 dev.off()
 ##
-pdf("graphics/Figure3b.pdf", width = 8, height = 4)
+pdf("graphics/Figure4b.pdf", width = 8, height = 4)
 xyplot(CP ~ I(as.numeric(het)) | scenario,
        data = cp.disc, groups = model, type = "b",
        layout = c(5, 1),
@@ -168,7 +168,7 @@ cp <- rbind(cp.full, cp.disc)
 cp$network <-
   factor(cp$network, c("disconnected", "connected"), c("Disconnected", "Connected"))
 ##
-pdf("graphics/Figure3.pdf", width = 9, height = 6)
+pdf("graphics/Figure4.pdf", width = 9, height = 6)
 xyplot(CP ~ I(as.numeric(het)) | scenario * network,
        data = cp, groups = model, type = c("b", "g"),
        layout = c(5, 2),

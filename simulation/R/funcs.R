@@ -22,7 +22,7 @@ combinations <- function(x, n = NULL) {
     combs <- combs[!(combs %in% x$inactive)]
   
   if (!is.null(n)) {
-    if (!meta:::is.wholenumber(n))
+    if (!meta:::is_wholenumber(n))
       stop("Argument 'n' must be a whole number.")
     sel <- unlist(lapply(strsplit(combs, x$sep.comps,
                                   fixed = TRUE), length)) == n
@@ -34,7 +34,7 @@ combinations <- function(x, n = NULL) {
 
 
 selcomp <- function(x, n = 1, sep = "+") {
-  if (!meta:::is.wholenumber(n))
+  if (!meta:::is_wholenumber(n))
     stop("Argument 'n' must be a whole number.")
   ##
   res <- lapply(strsplit(x, sep, fixed = TRUE),
@@ -52,7 +52,7 @@ selcomp <- function(x, n = 1, sep = "+") {
 
 selint <- function(x, n = 1, sep = "*") {
   
-  if (!meta:::is.wholenumber(n))
+  if (!meta:::is_wholenumber(n))
     stop("Argument 'n' must be a whole number.")
   
   res <- lapply(strsplit(x, sep, fixed = TRUE),

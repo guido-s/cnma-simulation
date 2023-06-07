@@ -1,8 +1,10 @@
-library(netmeta)
+library("netmeta")
 
 
 keepall <- TRUE
 verbose <- TRUE
+##
+inactive <- NULL
 
 
 ##
@@ -34,7 +36,7 @@ NMA.full <- netmeta(lnRR, selnRR, t1, t2, id, data = AEdata,
 ##
 ## Additive model for full connected network
 ##
-aCNMA.full <- netcomb(NMA.full)
+aCNMA.full <- netcomb(NMA.full, inactive = inactive)
 ##
 ## List of treatment combinations, i.e., potential interactions
 ##
@@ -61,15 +63,17 @@ save(NMA.full, aCNMA.full, ms.full,
 ## Initial disconnected network consisting of minimal set
 ## (with placebo as reference intervention)
 ##
-minset <- c("plac", "meto+scop", "scop", "dexa", "dexa+trop", "trop", "drop",
-  "dexa+drop", "beta", "amis", "dola", "drop+gran", "gran",
-  "dexa+gran", "meto+trop", "meto", "dexa+onda")
+minset <- c("plac",
+            "amis", "beta", "dola", "scop", "meto+scop",
+            "dexa", "drop", "dexa+drop", "gran", "dexa+gran","drop+gran",
+            "dexa+trop", "trop",
+            "dexa+onda")
 ##
 disc.init <-
   disconnect(lnRR, selnRR, t1, t2, id, data = AEdata,
     main.trts = minset)
 ##
-## Generate eight more disconnected networks
+## Generate additional disconnected networks
 ##
 disc.add <-
   disconnect_additional(lnRR, selnRR, t1, t2, id, data = AEdata,
@@ -99,20 +103,15 @@ aCNMA.discs <- ms.discs <- vector(mode = "list", length = n.discs)
 for (i in seq_len(n.discs))
   aCNMA.discs[[i]] <-
     discomb(TE, seTE, treat1, treat2, studlab,
-      data = AEdata.discs$data[[i]], sm = "RR")
+            data = AEdata.discs$data[[i]], sm = "RR",
+            inactive = inactive)
+warnings()
 ##
 ms.discs <-
   lapply(aCNMA.discs, fwdselection, keepall = keepall, verbose = verbose)
 warnings()
 ##
 names(ms.discs) <- paste0("disc", seq_len(n.discs))
-##
-## Model selection for network 8 (initial network)
-##
-ms.discs$disc8$selected
-ms.discs$disc8$selected1
-ms.discs$disc8$selected2
-ms.discs$disc8$selected3
 ##
 ## Save results of model selection in disconnected networks
 ##

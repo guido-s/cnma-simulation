@@ -174,6 +174,7 @@ disconnect <- function(TE, seTE, treat1, treat2, studlab,
   attr(res, "aux.trts") <-
     unique(sort(c(res$treat1[sel.aux], res$treat2[sel.aux])))
   ##
+  res <- cbind(id = 1, res)
   class(res) <- c("pairwise", class(res))
   ##
   nc <- netconnection(res)

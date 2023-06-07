@@ -1,6 +1,6 @@
 separate <- function(x) {
   dat <- subset(x, subnet == "main")
-  nc <- netconnection(treat1, treat2, studlab, data = dat)
+  nc <- netconnection(dat)
   ##
   if (nc$n.subnets == 1)
     return(netmeta(TE, seTE, treat1, treat2, studlab, 

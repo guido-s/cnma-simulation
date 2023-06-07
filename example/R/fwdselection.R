@@ -1,5 +1,6 @@
 fwdselection <- function(x, sel.pval = 0.157,
                          sep.interactions = "*",
+                         inactive = x$inactive,
                          keepall = FALSE, verbose = FALSE) {
   
   
@@ -10,7 +11,8 @@ fwdselection <- function(x, sel.pval = 0.157,
   meta:::chkchar(sep.interactions, length = 1)
   ##
   subnets <-
-    netconnection(x$treat1, x$treat2, x$studlab)$n.subnets
+    netconnection(treat1 = x$treat1, treat2 = x$treat2,
+                  studlab = x$studlab)$n.subnets
   ##
   if (verbose) {
     cat("Number of subnetworks:", subnets, "\n")
@@ -19,10 +21,11 @@ fwdselection <- function(x, sel.pval = 0.157,
   }
   
   
-  ## Determine and estimate all interaction CNMA models with one, two
-  ## or three 2-way interactions
+  ## Determine and estimate all interaction CNMA models with one, two,
+  ## three or four 2-way interactions
   ##
-  iCNMAs <- icnma_2way(x, sep.interactions = sep.interactions)
+  iCNMAs <-
+    icnma_2way(x, sep.interactions = sep.interactions, inactive = inactive)
   ##
   ## CNMA model selection
   ##
@@ -38,10 +41,12 @@ fwdselection <- function(x, sel.pval = 0.157,
               selected1 = ms$selected1,
               selected2 = ms$selected2,
               selected3 = ms$selected3,
+              selected4 = ms$selected4,
               ##
               hetstats1 = iCNMAs$hetstats1,
               hetstats2 = iCNMAs$hetstats2,
-              hetstats3 = iCNMAs$hetstats3)
+              hetstats3 = iCNMAs$hetstats3,
+              hetstats4 = iCNMAs$hetstats4)
   ##
   if (keepall) {
     res$iCNMA1 <- iCNMAs$iCNMA1
@@ -59,128 +64,193 @@ icnma_fwdsel <- function(x, additive, sel.pval) {
   ms1 <- x[["hetstats1"]]
   ms2 <- x[["hetstats2"]]
   ms3 <- x[["hetstats3"]]
+  ms4 <- x[["hetstats4"]]
   ##
-  Q.diff <- df.Q.diff <- pval.Q.diff <- rep(NA, 3)
+  ms1 <- ms1[!is.na(ms1$Q), ]
+  ms2 <- ms2[!is.na(ms2$Q), ]
+  ms3 <- ms3[!is.na(ms3$Q), ]
+  ms4 <- ms4[!is.na(ms4$Q), ]
+  ##
+  Q.diff <- df.Q.diff <- pval.Q.diff <- rep(NA, 4)
   
   
   ## Q and df for additive CNMA model
   ##
   Q.add <- additive$Q.additive
   df.Q.add <- additive$df.Q.additive 
-  
-  
   ##
-  ## Models with one 2-way interaction
-  ##
-  if (all(is.na(ms1$Q))) {
+  if (nrow(ms1) == 0) {
     selected <- "aCNMA"
     iCNMA.selected <- additive
+    model.selected <- TRUE
   }
-  else {
-    ms1 <- ms1[!is.na(ms1$Q), ]
-    ##
-    sel1 <- ms1$Q == min(ms1$Q)
-    ##
-    ## Randomly select interaction if p-values are identical
-    ##
+  else
+    model.selected <- FALSE
+  ##
+  Q1 <- Q2 <- Q3 <- FALSE
+  
+  
+  ## Models with one 2-way interaction
+  ##
+  if (nrow(ms1) > 0) {
+    pval1 <- pchisq(Q.add - ms1$Q, df = df.Q.add - ms1$df, lower = FALSE)
+    sel1 <- pval1 == min(pval1)
     ms1 <- ms1[sel1, ]
     if (sum(sel1) > 1)
       ms1 <- ms1[sample(seq_len(sum(sel1)), 1), ]
     ##
     ## Additive vs one 2-way interaction
     ##
-    if (Q.add > ms1$Q) {
+    if (Q.add > ms1$Q & !(round(Q.add - ms1$Q, 8) == 0)) {
       Q.diff[1] <- Q.add - ms1$Q
       df.Q.diff[1] <- df.Q.add - ms1$df
       pval.Q.diff[1] <- pchisq(Q.diff[1], df.Q.diff[1], lower = FALSE)
+      Q1 <- TRUE
     }
+  }
+  ##
+  ## Step 1 of model selection (one 2-way interaction vs additive)
+  ##
+  if (!model.selected &
+      (is.na(pval.Q.diff[1]) ||
+       df.Q.diff[1] == 0 ||
+       pval.Q.diff[1] >= sel.pval)) {
+    selected <- "aCNMA"
+    iCNMA.selected <- additive
+    model.selected <- TRUE
+  }
+  
+  
+  ## Models with two 2-way interaction
+  ## (only consider models with first selected 2-way interaction)
+  ##
+  ms2 <- ms2[ms2$interaction1 == ms1$interaction |
+             ms2$interaction2 == ms1$interaction, ]
+  ##
+  if (!model.selected & nrow(ms2) == 0) {
+    selected <- "iCNMA1"
+    iCNMA.selected <- x$iCNMA1[ms1$id]
+    model.selected <- TRUE
+  }
+  ##
+  if (nrow(ms2) > 0) {
+    pval2 <- pchisq(ms1$Q - ms2$Q, df = ms1$df - ms2$df, lower = FALSE)
+    sel2 <- pval2 == min(pval2)
+    ms2 <- ms2[sel2, ]
+    if (sum(sel2) > 1)
+      ms2 <- ms2[sample(seq_len(sum(sel2)), 1), ]
     ##
-    ## Step 1 of model selection (one 2-way interaction vs additive)
+    if (Q1 & ms1$Q > ms2$Q & !(round(ms1$Q - ms2$Q, 8) == 0)) {
+      Q.diff[2] <- ms1$Q - ms2$Q
+      df.Q.diff[2] <- ms1$df - ms2$df
+      pval.Q.diff[2] <- pchisq(Q.diff[2], df.Q.diff[2], lower = FALSE)
+      Q2 <- TRUE
+    }
+  }
+  ##
+  ## Step 2 of model selection (two vs one 2-way interactions)
+  ##
+  if (!model.selected &
+      (is.na(pval.Q.diff[2]) ||
+       df.Q.diff[2] == 0 ||
+       pval.Q.diff[2] >= sel.pval)) {
+    selected <- "iCNMA1"
+    iCNMA.selected <- x$iCNMA1[ms1$id]
+    model.selected <- TRUE
+  }
+  
+  
+  ## Models with three 2-way interaction
+  ## (only consider models with first two selected 2-way interactions)
+  ##
+  ms3 <- ms3[(ms3$interaction1 == ms2$interaction1 |
+              ms3$interaction2 == ms2$interaction1 |
+              ms3$interaction3 == ms2$interaction1) &
+             (ms3$interaction1 == ms2$interaction2 |
+              ms3$interaction2 == ms2$interaction2 |
+              ms3$interaction3 == ms2$interaction2), ]
+  ##
+  if (!model.selected & nrow(ms3) == 0) {
+    selected <- "iCNMA2"
+    iCNMA.selected <- x$iCNMA2[ms2$id]
+    model.selected <- TRUE
+  }
+  ##
+  if (nrow(ms3) > 0) {
+    pval3 <- pchisq(ms2$Q - ms3$Q, df = ms2$df - ms3$df, lower = FALSE)
+    sel3 <- pval3 == min(pval3)
+    ms3 <- ms3[sel3, ]
+    if (sum(sel3) > 1)
+      ms3 <- ms3[sample(seq_len(sum(sel3)), 1), ]
     ##
-    if (is.na(pval.Q.diff[1]) ||
-        df.Q.diff[1] == 0 ||
-        pval.Q.diff[1] >= sel.pval) {
-      selected <- "aCNMA"
-      iCNMA.selected <- additive
+    if (Q1 & Q2 & ms2$Q > ms3$Q & !(round(ms2$Q - ms3$Q, 8) == 0)) {
+      Q.diff[3] <- ms2$Q - ms3$Q
+      df.Q.diff[3] <- ms2$df - ms3$df
+      pval.Q.diff[3] <- pchisq(Q.diff[3], df.Q.diff[3], lower = FALSE)
+      Q3 <- TRUE
+    }
+  }
+  ##
+  ## Step 3 of model selection (three vs two 2-way interactions)
+  ##
+  if (!model.selected &
+      (is.na(pval.Q.diff[3]) ||
+       df.Q.diff[3] == 0 ||
+       pval.Q.diff[3] >= sel.pval)) {
+    selected <- "iCNMA2"
+    iCNMA.selected <- x$iCNMA2[ms2$id]
+    model.selected <- TRUE
+  }
+  
+  
+  ## Models with four 2-way interaction
+  ## (only consider models with first three selected 2-way interactions)
+  ##
+  ms4 <- ms4[(ms4$interaction1 == ms3$interaction1 |
+              ms4$interaction2 == ms3$interaction1 |
+              ms4$interaction3 == ms3$interaction1 |
+              ms4$interaction4 == ms3$interaction1) &
+             (ms4$interaction1 == ms3$interaction2 |
+              ms4$interaction2 == ms3$interaction2 |
+              ms4$interaction3 == ms3$interaction2 |
+              ms4$interaction4 == ms3$interaction2) &
+             (ms4$interaction1 == ms3$interaction3 |
+              ms4$interaction2 == ms3$interaction3 |
+              ms4$interaction3 == ms3$interaction3 |
+              ms4$interaction4 == ms3$interaction3), ]
+  ##
+  if (!model.selected & nrow(ms4) == 0) {
+    selected <- "iCNMA3"
+    iCNMA.selected <- x$iCNMA3[ms3$id]
+    model.selected <- TRUE
+  }
+  ##
+  if (nrow(ms3) > 0) {
+    pval4 <- pchisq(ms3$Q - ms4$Q, df = ms3$df - ms4$df, lower = FALSE)
+    sel4 <- pval4 == min(pval4)
+    ms4 <- ms4[sel4, ]
+    if (sum(sel4) > 1)
+      ms4 <- ms4[sample(seq_len(sum(sel4)), 1), ]
+    ##
+    if (Q1 & Q2 & Q3 & ms3$Q > ms4$Q & !(round(ms3$Q - ms4$Q, 8) == 0)) {
+      Q.diff[4] <- ms3$Q - ms4$Q
+      df.Q.diff[4] <- ms3$df - ms4$df
+      pval.Q.diff[4] <- pchisq(Q.diff[4], df.Q.diff[4], lower = FALSE)
+    }
+  }
+  ##
+  ## Step 4 of model selection (four vs three 2-way interactions)
+  ##
+  if (!model.selected) {
+    if (is.na(pval.Q.diff[4]) ||
+        df.Q.diff[4] == 0 ||
+        pval.Q.diff[4] >= sel.pval) {
+      selected <- "iCNMA3"
+      iCNMA.selected <- x$iCNMA3[ms3$id]
     }
     else {
-      ##
-      ## Only consider models with first selected 2-way interaction
-      ##
-      ms2 <- ms2[ms2$interaction1 == ms1$interaction |
-                 ms2$interaction2 == ms1$interaction, ]
-      ##
-      if (all(is.na(ms2$Q))) {
-        selected <- "iCNMA1"
-        iCNMA.selected <- x$iCNMA1[ms1$id]
-      }
-      else {
-        ms2 <- ms2[!is.na(ms2$Q), ]
-        ##
-        sel2 <- ms2$Q == min(ms2$Q)
-        ##
-        ## Randomly select interaction if Qs are identical
-        ##
-        ms2 <- ms2[sel2, ]
-        if (sum(sel2) > 1)
-          ms2 <- ms2[sample(seq_len(sum(sel2)), 1), ]
-        ##
-        ## Step 2 of model selection (two vs one 2-way interactions)
-        ##
-        Q.diff[2] <- ms1$Q - ms2$Q
-        df.Q.diff[2] <- ms1$df - ms2$df
-        pval.Q.diff[2] <- pchisq(Q.diff[2], df.Q.diff[2], lower = FALSE)
-        ##
-        if (is.na(pval.Q.diff[2]) ||
-            df.Q.diff[2] == 0 ||
-            pval.Q.diff[2] >= sel.pval) {
-          selected <- "iCNMA1"
-          iCNMA.selected <- x$iCNMA1[ms1$id]
-        }
-        else {
-          if (all(is.na(ms3$Q))) {
-            selected <- "iCNMA2"
-            iCNMA.selected <- x$iCNMA2[ms2$id]
-          }
-          ##
-          ## Only consider models with first two selected 2-way
-          ## interactions
-          ##
-          ms3 <- ms3[(ms3$interaction1 == ms2$interaction1 |
-                      ms3$interaction2 == ms2$interaction1 |
-                      ms3$interaction3 == ms2$interaction1) &
-                     (ms3$interaction1 == ms2$interaction2 |
-                      ms3$interaction2 == ms2$interaction2 |
-                      ms3$interaction3 == ms2$interaction2), ]
-          ##
-          ms3 <- ms3[!is.na(ms3$Q), ]
-          ##
-          sel3 <- ms3$Q == min(ms3$Q)
-          ##
-          ## Randomly select interaction if Qs are identical
-          ##
-          ms3 <- ms3[sel3, ]
-          if (sum(sel3) > 1)
-            ms3 <- ms3[sample(seq_len(sum(sel3)), 1), ]
-          ##
-          ## Step 3 of model selection (three vs two 2-way interactions)
-          ##
-          Q.diff[3] <- ms2$Q - ms3$Q
-          df.Q.diff[3] <- ms2$df - ms3$df
-          pval.Q.diff[3] <- pchisq(Q.diff[3], df.Q.diff[3], lower = FALSE)
-          ##
-          if (is.na(pval.Q.diff[3]) ||
-              df.Q.diff[3] == 0 ||
-              pval.Q.diff[3] >= sel.pval) {
-            selected <- "iCNMA2"
-            iCNMA.selected <- x$iCNMA2[ms2$id]
-          }
-          else {
-            selected <- "iCNMA3"
-            iCNMA.selected <- x$iCNMA3[ms3$id]
-          }
-        }
-      }
+      selected <- "iCNMA4"
+      iCNMA.selected <- x$iCNMA4[ms4$id]
     }
   }
   
@@ -192,27 +262,72 @@ icnma_fwdsel <- function(x, additive, sel.pval) {
     ms2$interaction1 <- ms1$interaction
   }
   ##
-  if (is.data.frame(ms3)) {
-    keep <- ""
-    if (ms3$interaction1 != ms2$interaction1) {
-      if (ms3$interaction1 != ms2$interaction2)
-        keep <- ms3$interaction1
-      ms3$interaction1 <- ms2$interaction1
+  if (is.data.frame(ms3)) {    
+    int2 <- c(ms2$interaction1, ms2$interaction2)
+    int3 <- c(ms3$interaction1, ms3$interaction2, ms3$interaction3)
+    ##
+    keep <- character(0)
+    keep.int2 <- int2
+    ##
+    for (i in seq_along(int2)) {
+      if (int3[i] != int2[i]) {
+        if (int3[i] %in% keep.int2) {
+          keep.int2 <- keep.int2[keep.int2 != int2[i]]
+          int3[int3 == int2[i]] <- int3[i]
+          int3[i] <- int2[i]
+        }
+        else {
+          keep <- c(keep, int3[i])
+          int3[i] <- int2[i]
+        }
+      }
     }
-    if (ms3$interaction2 != ms2$interaction2) {
-      if (ms3$interaction2 != ms2$interaction1)
-        keep <- ms3$interaction2
-      ms3$interaction2 <- ms2$interaction2
+    ##
+    if (length(keep) == 1)
+      int3[3] <- keep
+    ##
+    ms3$interaction1 <- int3[1]
+    ms3$interaction2 <- int3[2]
+    ms3$interaction3 <- int3[3]
+  }
+  ##
+  if (is.data.frame(ms4)) {    
+    int3 <- c(ms3$interaction1, ms3$interaction2, ms3$interaction3)
+    int4 <- c(ms4$interaction1, ms4$interaction2, ms4$interaction3,
+              ms4$interaction4)
+    ##
+    keep <- character(0)
+    keep.int3 <- int3
+    ##
+    for (i in seq_along(int3)) {
+      if (int4[i] != int3[i]) {
+        if (int4[i] %in% keep.int3) {
+          keep.int3 <- keep.int3[keep.int3 != int3[i]]
+          int4[int4 == int3[i]] <- int4[i]
+          int4[i] <- int3[i]
+        }
+        else {
+          keep <- c(keep, int4[i])
+          int4[i] <- int3[i]
+        }
+      }
     }
-    if (keep != "")
-      ms3$interaction3 <- keep
+    ##
+    if (length(keep) == 1)
+      int4[4] <- keep
+    ##
+    ms4$interaction1 <- int4[1]
+    ms4$interaction2 <- int4[2]
+    ms4$interaction3 <- int4[3]
+    ms4$interaction4 <- int4[4]
   }
   
   
   res <- list(iCNMA.selected = iCNMA.selected,
               selected = selected,
               Q = Q.diff, df.Q = df.Q.diff, pval.Q = pval.Q.diff,
-              selected1 = ms1, selected2 = ms2, selected3 = ms3)
+              selected1 = ms1, selected2 = ms2, selected3 = ms3,
+              selected4 = ms4)
   ##
   res
 }
@@ -222,10 +337,11 @@ icnma_2way <- function(TE, seTE,
                        treat1, treat2, studlab,
                        data = NULL, subset = NULL,
                        sm,
-                       fixed = FALSE,
+                       common = FALSE,
                        random = TRUE,
                        ##
                        reference.group = "",
+                       inactive = NULL,
                        ##
                        sep.comps = "+",
                        sep.interactions = "*",
@@ -249,7 +365,7 @@ icnma_2way <- function(TE, seTE,
   ##
   meta:::chkchar(sep.comps, nchar = 1)
   ##
-  meta:::chklogical(fixed)
+  meta:::chklogical(common)
   meta:::chklogical(random)
   
   
@@ -302,8 +418,8 @@ icnma_2way <- function(TE, seTE,
     if (missing(reference.group))
       reference.group <- TE$reference.group
     ##
-    if (missing(fixed))
-      fixed <- TE$fixed
+    if (missing(common))
+      common <- TE$common
     ##
     if (missing(random))
       random <- TE$random
@@ -544,7 +660,9 @@ icnma_2way <- function(TE, seTE,
   ## (5) Check network connectivity and conduct CNMA
   ##
   ##
-  n.subsets <- netconnection(treat1, treat2, studlab)$n.subnets
+  n.subsets <-
+    netconnection(treat1 = treat1, treat2 = treat2,
+                  studlab = studlab)$n.subnets
   connected <- n.subsets == 1
   ##
   if (!connected) {
@@ -554,8 +672,9 @@ icnma_2way <- function(TE, seTE,
     ##
     net.additive <- discomb(TE, seTE, treat1, treat2, studlab,
                             sm = sm,
-                            fixed = fixed,
-                            random = random)
+                            common = common,
+                            random = random,
+                            inactive = inactive)
   }
   else {
     ##
@@ -567,12 +686,12 @@ icnma_2way <- function(TE, seTE,
     NMA <- netmeta(TE, seTE, treat1, treat2, studlab,
                     reference.group = reference.group,
                     sm = sm,
-                    fixed = fixed,
+                    common = common,
                     random = random)
 
     ## Additive component network meta-analysis model
     ##
-    net.additive <- netcomb(NMA)
+    net.additive <- netcomb(NMA, inactive = inactive)
   }
   
   
@@ -628,9 +747,11 @@ icnma_2way <- function(TE, seTE,
       ##
       if (!connected)
         net.i <- discomb(TE, seTE, treat1, treat2, studlab,
-                         C.matrix = C1.i, sm = sm)
+                         C.matrix = C1.i, sm = sm,
+                         inactive = inactive)
       else
-        net.i <- netcomb(NMA, C.matrix = C1.i)
+        net.i <- netcomb(NMA, C.matrix = C1.i,
+                         inactive = inactive)
       ##
       hetstats1$interaction[j] <- comp12
       ##
@@ -701,13 +822,15 @@ icnma_2way <- function(TE, seTE,
       if (!connected)
         iCNMA2[[i]] <-
           discomb(TE, seTE, treat1, treat2, studlab,
-                  C.matrix = C2[[i]], sm = sm)
+                  C.matrix = C2[[i]], sm = sm,
+                  inactive = inactive)
 
       else
         iCNMA2[[i]] <-
           netcomb(NMA,
                   C.matrix = C2[[i]],
-                  fixed = fixed, random = random)
+                  common = common, random = random,
+                  inactive = inactive)
       ##
       hetstats2$interaction1[i] <- k
       hetstats2$interaction2[i] <- j
@@ -775,12 +898,14 @@ icnma_2way <- function(TE, seTE,
       if (!connected)
         iCNMA3[[i]] <-
           discomb(TE, seTE, treat1, treat2, studlab,
-                  C.matrix = C3[[i]], sm = sm)
+                  C.matrix = C3[[i]], sm = sm,
+                  inactive = inactive)
       else
         iCNMA3[[i]] <-
           netcomb(NMA,
                   C.matrix = C3[[i]],
-                  fixed = fixed, random = random)
+                  common = common, random = random,
+                  inactive = inactive)
       ##
       hetstats3$interaction1[i] <- k
       hetstats3$interaction2[i] <- j
@@ -799,9 +924,94 @@ icnma_2way <- function(TE, seTE,
   }
   
   
+  ##
+  ##
+  ## (9) CNMA models with four 2-way interactions
+  ##
+  ##
+  if (length(int2.1) < 4) {
+    hetstats4 <- NA
+    iCNMA4 <- NA
+  }
+  else {
+    comb2.4 <- combn(int2.1, 4) # combinations of four 2-way interactions
+    ##
+    C4 <- iCNMA4 <- list()
+    ##
+    hetstats4 <-
+      data.frame(interaction1 = rep("", ncol(comb2.4)),
+                 interaction2 = rep("", ncol(comb2.4)),
+                 interaction3 = rep("", ncol(comb2.4)),
+                 interaction4 = rep("", ncol(comb2.4)),
+                 Q = NA, df = NA, pval = NA,
+                 id = seq_len(ncol(comb2.4)))
+    ##
+    for (i in seq_len(ncol(comb2.4))) {
+      j <- comb2.4[2, i]
+      comp1.j <- selint(j, 1)
+      comp2.j <- selint(j, 2)
+      comp12j <- paste(comp1.j, comp2.j, sep = sep.interactions)
+      ##
+      m <- comb2.4[3, i]
+      comp1.m <- selint(m, 1)
+      comp2.m <- selint(m, 2)
+      comp12m <- paste(comp1.m, comp2.m, sep = sep.interactions)
+      ##
+      n <- comb2.4[4, i]
+      comp1.n <- selint(n, 1)
+      comp2.n <- selint(n, 2)
+      comp12n <- paste(comp1.n, comp2.n, sep = sep.interactions)
+      ##
+      k <- comb2.4[1, i]
+      index.int <- which(hetstats1$interaction == k)
+      ##
+      C4[[i]] <-
+        cbind(C1[[index.int]],
+              C.matrix[, comp1.j] * C.matrix[, comp2.j],
+              C.matrix[, comp1.m] * C.matrix[, comp2.m],
+              C.matrix[, comp1.n] * C.matrix[, comp2.n])
+      colnames(C4[[i]]) <-
+        c(colnames(C1[[index.int]]), comp12j, comp12m, comp12n)
+      ##
+      if (debug)
+        print(c(colnames(C1[[index.int]]), comp12j, comp12m, comp12n))
+      ##
+      ## Conduct CNMA
+      ##
+      if (!connected)
+        iCNMA4[[i]] <-
+          discomb(TE, seTE, treat1, treat2, studlab,
+                  C.matrix = C4[[i]], sm = sm,
+                  inactive = inactive)
+      else
+        iCNMA4[[i]] <-
+          netcomb(NMA,
+                  C.matrix = C4[[i]],
+                  common = common, random = random,
+                  inactive = inactive)
+      ##
+      hetstats4$interaction1[i] <- k
+      hetstats4$interaction2[i] <- j
+      hetstats4$interaction3[i] <- m
+      hetstats4$interaction4[i] <- n
+      ##
+      if ((iCNMA4[[i]]$df.Q.additive < net.additive$df.Q.additive)) {
+        hetstats4[i, 5:7] <-
+          c(iCNMA4[[i]]$Q.additive,
+            iCNMA4[[i]]$df.Q.additive,
+            iCNMA4[[i]]$pval.Q.additive)
+      }
+      ##
+      if (verbose)
+        print(subset(hetstats4, hetstats4$interaction1 != ""))
+    }
+  }
+  
+  
   res <- list(hetstats1 = hetstats1, iCNMA1 = iCNMA1,
               hetstats2 = hetstats2, iCNMA2 = iCNMA2,
-              hetstats3 = hetstats3, iCNMA3 = iCNMA3)
+              hetstats3 = hetstats3, iCNMA3 = iCNMA3,
+              hetstats4 = hetstats4, iCNMA4 = iCNMA4)
   ##
   res
 }

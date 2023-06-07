@@ -151,14 +151,14 @@ disconnect_additional <- function(TE, seTE, treat1, treat2, studlab,
       potential.set[[j]] <- c(minimal.set, combn(diff, i)[, j])
       disc <- disconnect(TE, seTE, treat1, treat2, studlab,
                          main.trts = potential.set[[j]])
+      class(disc) <- c("pairwise", class(disc))
       ##
       disc.ma <- subset(disc, subnet %in% c("main", "auxiliary"))
       ##
       ## Only keep networks which (i) include all treatments and (ii)
       ## are disconnected
       ##
-      nc.ij <- netconnection(disc.ma$treat1, disc.ma$treat2,
-                             disc.ma$studlab)
+      nc.ij <- netconnection(disc.ma)
       ##
       if (nc.ij$n == n && nc.ij$n.subnets > 1) {
         s <- s + 1
@@ -178,6 +178,9 @@ disconnect_additional <- function(TE, seTE, treat1, treat2, studlab,
         attr(disc.ma, "m") <- nc.ij$m
         attr(disc.ma, "n") <- nc.ij$n
         attr(disc.ma, "n.subnets") <- nc.ij$n.subnets
+        ##
+        disc.ma$id <- s + 1
+        disc$id <- s + 1
         ##
         data[[s]] <- disc.ma           # dataset of disconnected network
         set[[s]] <- potential.set[[j]] # treatments in main subnetwork

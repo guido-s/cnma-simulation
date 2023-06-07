@@ -13,8 +13,8 @@ combinations <- function(x, n = NULL) {
   if (!is.null(n)) {
     if (!meta:::is.wholenumber(n))
       stop("Argument 'n' must be a whole number.")
-    sel <- unlist(lapply(strsplit(combs, x$sep.comps,
-                                  fixed = TRUE), length)) == n
+    sel <-
+      unlist(lapply(strsplit(combs, x$sep.comps, fixed = TRUE), length)) == n
     combs <- combs[sel]
   }
   

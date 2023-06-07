@@ -41,6 +41,8 @@ sortdisc <- function(init, add, verbose = FALSE) {
   for (i in o) {
     j <- j + 1
     list.discdata[[j]] <- list.discdata.unsorted[[i]]
+    if (i == 1)
+      attr(list.discdata[[j]], "init") <- TRUE
   }
   ##
   list.set.unsorted <- c(list(minset), add$set)

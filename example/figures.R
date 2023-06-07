@@ -100,8 +100,8 @@ nb.iCNMA3 <-
           col.study = seq_len(length(names.cnmas)),
           col.square = seq_len(length(names.cnmas)))
 ##
-pdf("graphics/Figure5.pdf", height = 25.5, width = 10)
-forest(nb.iCNMA3, subset = c("amis", "apre", "apre+scop", "palo", "ramo"),
+pdf("graphics/Figure5.pdf", height = 15.5, width = 10)
+forest(nb.iCNMA3, subset = c("amis", "apre", "palo"),
   xlim = c(0.05, 10), at = c(0.1, 0.5, 1, 2, 10),
   leftlabs = "Intervention",
   col.by = "black")

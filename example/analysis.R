@@ -43,6 +43,28 @@ id <- (1:length(AEdata.discs$fulldata))[sapply(AEdata.discs$fulldata, getinit)]
 disc.init <- paste0("disc", id)
 disc.init
 ##
+## Information on subnetworks
+##
+dat.init <- AEdata.discs$data[[as.numeric(gsub("disc", "", disc.init))]]
+dis.init <-
+  discomb(TE, seTE, treat1, treat2, studlab, data = dat.init, sm = "RR")
+nc.init <- netconnection(dat.init)
+nc.init
+## Interventions in subnetworks
+with(nc.init, sort(unique(c(treat1[subnet == 1], treat2[subnet == 1]))))
+with(nc.init, sort(unique(c(treat1[subnet == 2], treat2[subnet == 2]))))
+## Number of interventions, studies and pairwise comparisons in main subnetwork
+length(
+  with(nc.init, sort(unique(c(treat1[subnet == 2], treat2[subnet == 2])))))
+length(unique(nc.init$studlab[nc.init$subnet == 2]))
+length(nc.init$studlab[nc.init$subnet == 2])
+## Number of interventions, studies and pairwise comparisons in auxiliary
+## subnetwork
+length(
+  with(nc.init, sort(unique(c(treat1[subnet == 1], treat2[subnet == 1])))))
+length(unique(nc.init$studlab[nc.init$subnet == 1]))
+length(nc.init$studlab[nc.init$subnet == 1])
+##
 ms.discs[[disc.init]]$selected1
 ms.discs[[disc.init]]$selected2
 ms.discs[[disc.init]]$selected3
@@ -114,7 +136,7 @@ modsel$df4 <- sapply(ms.discs, getvar, var1 = "selected4", var2 = "df")
 for (i in seq_len(nrow(modsel)))
   modsel$modsel[i] <- modsel[i, modsel$selected[i]]
 ##
-modsel %>% select(k, m, s, selected, iCNMA1, iCNMA2, iCNMA3)
+modsel %>% select(k, m, s, selected, iCNMA1, iCNMA2, iCNMA3, iCNMA4)
 ##
 save(modsel, file = "results/discs-modsel-table.rda")
 

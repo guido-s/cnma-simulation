@@ -11,7 +11,7 @@ combinations <- function(x, n = NULL) {
     combs <- combs[!(combs %in% x$inactive)]
   
   if (!is.null(n)) {
-    if (!meta:::is.wholenumber(n))
+    if (!meta:::is_wholenumber(n))
       stop("Argument 'n' must be a whole number.")
     sel <-
       unlist(lapply(strsplit(combs, x$sep.comps, fixed = TRUE), length)) == n
